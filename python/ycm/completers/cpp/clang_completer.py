@@ -24,6 +24,8 @@ from ycm import extra_conf_store
 from ycm.utils import ToUtf8IfNeeded
 from ycm.completers.completer import Completer
 from ycm.completers.cpp.flags import Flags, PrepareFlagsForClang
+import linecache
+import yacbi
 
 CLANG_FILETYPES = set( [ 'c', 'cpp', 'objc', 'objcpp' ] )
 MIN_LINES_IN_FILE_TO_PARSE = 5
@@ -105,6 +107,7 @@ class ClangCompleter( Completer ):
              'GoToDeclaration',
              'GoTo',
              'GoToImprecise',
+             'QueryReferences',
              'ClearCompilationFlagCache']
 
 
@@ -121,6 +124,8 @@ class ClangCompleter( Completer ):
       return self._GoTo( request_data )
     elif command == 'GoToImprecise':
       return self._GoToImprecise( request_data )
+    elif command == 'QueryReferences':
+      return self._QueryReferences( request_data )
     elif command == 'ClearCompilationFlagCache':
       return self._ClearCompilationFlagCache()
     raise ValueError( self.UserCommandsHelpMessage() )
@@ -149,9 +154,25 @@ class ClangCompleter( Completer ):
 
   def _GoToDefinition( self, request_data ):
     location = self._LocationForGoTo( 'GetDefinitionLocation', request_data )
-    if not location or not location.IsValid():
-      raise RuntimeError( 'Can\'t jump to definition.' )
-    return _ResponseForLocation( location )
+    if location and location.IsValid():
+      return _ResponseForLocation( location )
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+    usr = self._GetUsr( request_data )
+    if usr:
+      root_dir = yacbi.get_root_for_path( filename )
+      if root_dir:
+        defs = yacbi.query_definitions( root_dir, usr )
+        if defs:
+          locations = [{ 'filepath': d.filename,
+                         'line_num': d.line - 1,
+                         'column_num': d.column - 1 } for d in defs]
+          if len( locations ) == 1:
+            return locations[ 0 ]
+          else:
+            return locations;
+    raise RuntimeError( 'Can\'t jump to definition.' )
 
 
   def _GoToDeclaration( self, request_data ):
@@ -163,7 +184,26 @@ class ClangCompleter( Completer ):
 
   def _GoTo( self, request_data ):
     location = self._LocationForGoTo( 'GetDefinitionLocation', request_data )
-    if not location or not location.IsValid():
+    if location and location.IsValid():
+      return _ResponseForLocation( location )
+    location = None
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+    usr = self._GetUsr( request_data )
+    if usr:
+      root_dir = yacbi.get_root_for_path( filename )
+      if root_dir:
+        defs = yacbi.query_definitions( root_dir, usr )
+        if defs:
+          locations = [{ 'filepath': d.filename,
+                         'line_num': d.line - 1,
+                         'column_num': d.column - 1 } for d in defs]
+          if len( locations ) == 1:
+            return locations[ 0 ]
+          else:
+            return locations;
+    if not location:
       location = self._LocationForGoTo( 'GetDeclarationLocation', request_data )
     if not location or not location.IsValid():
       raise RuntimeError( 'Can\'t jump to definition or declaration.' )
@@ -182,6 +222,51 @@ class ClangCompleter( Completer ):
       raise RuntimeError( 'Can\'t jump to definition or declaration.' )
     return _ResponseForLocation( location )
 
+
+  def _GetUsr( self, request_data ):
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+
+    flags = self._FlagsForRequest( request_data )
+    if not flags:
+      raise ValueError( NO_COMPILE_FLAGS_MESSAGE )
+
+    files = self.GetUnsavedFilesVector( request_data )
+    line = request_data[ 'line_num' ] + 1
+    column = request_data[ 'column_num' ] + 1
+    usr = getattr( self._completer, "GetUsrForLocation" )(
+      ToUtf8IfNeeded( filename ),
+      line,
+      column,
+      files,
+      flags,
+      True )
+    return usr
+
+
+  def _QueryReferences( self, request_data ):
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+    usr = self._GetUsr( request_data )
+    root_dir = yacbi.get_root_for_path( filename )
+    if not root_dir:
+      raise RuntimeError( 'Could not find yacbi database file.' )
+    refs = yacbi.query_references( root_dir, usr )
+    result = []
+    linecache.checkcache()
+    for r in refs:
+      txt = linecache.getline( r.filename, r.line ).strip()
+      if txt:
+        desc = r.description + ': ' + txt
+      else:
+        desc = r.description
+      result.append( { 'filepath': r.filename,
+                       'description': desc,
+                       'line_num': r.line - 1,
+                       'column_num': r.column } )
+    return result
 
   def _ClearCompilationFlagCache( self ):
     self._flags.Clear()

@@ -73,6 +73,14 @@ public:
     const std::vector< std::string > &flags,
     bool reparse = true );
 
+   std::string GetUsrForLocationInFile(
+     const std::string &filename,
+     int line,
+     int column,
+     const std::vector< UnsavedFile > &unsaved_files,
+     const std::vector< std::string > &flags,
+     bool reparse = true );
+
   void DeleteCachesForFile( const std::string &filename );
 
 private:

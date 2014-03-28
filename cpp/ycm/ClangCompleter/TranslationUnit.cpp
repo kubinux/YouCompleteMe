@@ -67,6 +67,7 @@ TranslationUnit::TranslationUnit(
                               pointer_flags.size(),
                               const_cast<CXUnsavedFile *>( unsaved ),
                               cxunsaved_files.size(),
+                              CXTranslationUnit_DetailedPreprocessingRecord |
                               clang_defaultEditingTranslationUnitOptions() );
 
   if ( !clang_translation_unit_ )
@@ -224,6 +225,29 @@ Location TranslationUnit::GetDefinitionLocation(
   return Location( clang_getCursorLocation( definition_cursor ) );
 }
 
+std::string TranslationUnit::GetUsrForLocationInFile(
+  int line,
+  int column,
+  const std::vector< UnsavedFile > &unsaved_files,
+  bool reparse ) {
+  if ( reparse )
+    ReparseForIndexing( unsaved_files );
+  unique_lock< mutex > lock( clang_access_mutex_ );
+
+  if ( !clang_translation_unit_ )
+    return std::string();
+
+  CXCursor cursor = GetCursor( line, column );
+
+  if ( !CursorIsValid( cursor ) )
+    return std::string();
+
+  CXCursor referenced_cursor = clang_getCursorReferenced( cursor );
+
+  if ( !CursorIsValid( referenced_cursor ) )
+    return std::string();
+  return CXStringToString( clang_getCursorUSR( referenced_cursor ) );
+}
 
 // Argument taken as non-const ref because we need to be able to pass a
 // non-const pointer to clang. This function (and clang too) will not modify the
@@ -249,10 +273,11 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
     CXUnsavedFile *unsaved = unsaved_files.size() > 0
                              ? &unsaved_files[ 0 ] : NULL;
 
-    failure = clang_reparseTranslationUnit( clang_translation_unit_,
-                                            unsaved_files.size(),
-                                            unsaved,
-                                            parse_options );
+    failure = clang_reparseTranslationUnit(
+            clang_translation_unit_,
+            unsaved_files.size(),
+            unsaved,
+            CXTranslationUnit_DetailedPreprocessingRecord | parse_options );
   }
 
   if ( failure ) {

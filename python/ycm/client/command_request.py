@@ -21,6 +21,7 @@ import vim
 from ycm.client.base_request import BaseRequest, BuildRequestData, ServerError
 from ycm import vimsupport
 from ycm.utils import ToUtf8IfNeeded
+import json
 
 def _EnsureBackwardsCompatibility( arguments ):
   if arguments and arguments[ 0 ] == 'GoToDefinitionElseDeclaration':
@@ -36,6 +37,8 @@ class CommandRequest( BaseRequest ):
                                else 'filetype_default' )
     self._is_goto_command = (
         self._arguments and self._arguments[ 0 ].startswith( 'GoTo' ) )
+    self._is_query_command = (
+        self._arguments and self._arguments[ 0 ].startswith( 'Query' ) )
     self._response = None
 
 
@@ -57,19 +60,23 @@ class CommandRequest( BaseRequest ):
 
 
   def RunPostCommandActionsIfNeeded( self ):
-    if not self._is_goto_command or not self.Done() or not self._response:
+    if not self.Done() or not self._response:
       return
 
-    if isinstance( self._response, list ):
-      defs = [ _BuildQfListItem( x ) for x in self._response ]
-      vim.eval( 'setqflist( %s )' % repr( defs ) )
-      vim.eval( 'youcompleteme#OpenGoToList()' )
-    else:
-      vimsupport.JumpToLocation( self._response[ 'filepath' ],
-                                 self._response[ 'line_num' ] + 1,
-                                 self._response[ 'column_num' ] + 1)
-
-
+    if self._is_goto_command:
+      if isinstance( self._response, list ):
+        defs = [ _BuildQfListItem( x ) for x in self._response ]
+        vim.eval( 'setqflist( {0} )'.format( json.dumps( defs ) ) )
+        vim.eval( 'youcompleteme#OpenGoToList()' )
+      else:
+        vimsupport.JumpToLocation( self._response[ 'filepath' ],
+                                   self._response[ 'line_num' ] + 1,
+                                   self._response[ 'column_num' ] + 1)
+    elif self._is_query_command:
+      if isinstance( self._response, list ):
+        defs = [ _BuildQfListItem( x ) for x in self._response ]
+        vim.eval( 'setqflist( {0} )'.format( json.dumps( defs ) ) )
+        vim.eval( 'youcompleteme#OpenQueryResultList()' )
 
 
 def SendCommandRequest( arguments, completer ):

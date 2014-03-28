@@ -733,6 +733,15 @@ function! youcompleteme#OpenGoToList()
 endfunction
 
 
+function! youcompleteme#OpenQueryResultList()
+  set lazyredraw
+  cclose
+  execute 'belowright copen'
+  set nolazyredraw
+  redraw!
+endfunction
+
+
 command! -nargs=* -complete=custom,youcompleteme#SubCommandsComplete
   \ YcmCompleter call s:CompleterCommand(<f-args>)
 
