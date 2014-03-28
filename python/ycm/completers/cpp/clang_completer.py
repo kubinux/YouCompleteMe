@@ -108,6 +108,7 @@ class ClangCompleter( Completer ):
              'GoTo',
              'GoToImprecise',
              'QueryReferences',
+             'QueryIncludingFiles',
              'ClearCompilationFlagCache']
 
 
@@ -126,6 +127,8 @@ class ClangCompleter( Completer ):
       return self._GoToImprecise( request_data )
     elif command == 'QueryReferences':
       return self._QueryReferences( request_data )
+    elif command == 'QueryIncludingFiles':
+      return self._QueryIncludingFiles( request_data )
     elif command == 'ClearCompilationFlagCache':
       return self._ClearCompilationFlagCache()
     raise ValueError( self.UserCommandsHelpMessage() )
@@ -257,16 +260,62 @@ class ClangCompleter( Completer ):
     result = []
     linecache.checkcache()
     for r in refs:
-      txt = linecache.getline( r.filename, r.line ).strip()
+      loc = r.location
+      txt = linecache.getline( loc.filename, loc.line ).strip()
       if txt:
         desc = r.description + ': ' + txt
       else:
         desc = r.description
-      result.append( { 'filepath': r.filename,
+      result.append( { 'filepath': loc.filename,
                        'description': desc,
-                       'line_num': r.line - 1,
-                       'column_num': r.column } )
+                       'line_num': loc.line - 1,
+                       'column_num': loc.column } )
     return result
+
+
+  def _QueryIncludingFiles( self, request_data ):
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+    root_dir = yacbi.get_root_for_path( filename )
+    if not root_dir:
+      raise RuntimeError( 'Could not find yacbi database file.' )
+    locations = yacbi.query_including_files( root_dir, filename )
+    result = []
+    linecache.checkcache()
+    for loc in locations:
+      desc = linecache.getline( loc.filename, loc.line ).strip()
+      result.append( { 'filepath': loc.filename,
+                       'description': desc,
+                       'line_num': loc.line - 1,
+                       'column_num': loc.column } )
+    return result
+
+
+  def _QueryReferences( self, request_data ):
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+    usr = self._GetUsr( request_data )
+    root_dir = yacbi.get_root_for_path( filename )
+    if not root_dir:
+      raise RuntimeError( 'Could not find yacbi database file.' )
+    refs = yacbi.query_references( root_dir, usr )
+    result = []
+    linecache.checkcache()
+    for r in refs:
+      loc = r.location
+      txt = linecache.getline( loc.filename, loc.line ).strip()
+      if txt:
+        desc = r.description + ': ' + txt
+      else:
+        desc = r.description
+      result.append( { 'filepath': loc.filename,
+                       'description': desc,
+                       'line_num': loc.line - 1,
+                       'column_num': loc.column } )
+    return result
+
 
   def _ClearCompilationFlagCache( self ):
     self._flags.Clear()
