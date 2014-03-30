@@ -168,9 +168,9 @@ class ClangCompleter( Completer ):
       if root_dir:
         defs = yacbi.query_definitions( root_dir, usr )
         if defs:
-          locations = [{ 'filepath': d.filename,
-                         'line_num': d.line - 1,
-                         'column_num': d.column - 1 } for d in defs]
+          locations = [{ 'filepath': d.location.filename,
+                         'line_num': d.location.line - 1,
+                         'column_num': d.location.column - 1 } for d in defs]
           if len( locations ) == 1:
             return locations[ 0 ]
           else:
@@ -199,9 +199,9 @@ class ClangCompleter( Completer ):
       if root_dir:
         defs = yacbi.query_definitions( root_dir, usr )
         if defs:
-          locations = [{ 'filepath': d.filename,
-                         'line_num': d.line - 1,
-                         'column_num': d.column - 1 } for d in defs]
+          locations = [{ 'filepath': d.location.filename,
+                         'line_num': d.location.line - 1,
+                         'column_num': d.location.column - 1 } for d in defs]
           if len( locations ) == 1:
             return locations[ 0 ]
           else:
