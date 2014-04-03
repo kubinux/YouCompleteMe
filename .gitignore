@@ -64,3 +64,6 @@ doc/tags
 # Yacbi
 .yacbi.db
 .yacbi.json
+
+# Vim
+.*.swp

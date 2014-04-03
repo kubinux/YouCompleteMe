@@ -108,6 +108,7 @@ class ClangCompleter( Completer ):
              'GoTo',
              'GoToImprecise',
              'QueryReferences',
+             'QueryReferencesImprecise',
              'QueryIncludingFiles',
              'ClearCompilationFlagCache']
 
@@ -122,11 +123,13 @@ class ClangCompleter( Completer ):
     elif command == 'GoToDeclaration':
       return self._GoToDeclaration( request_data )
     elif command == 'GoTo':
-      return self._GoTo( request_data )
+      return self._GoTo( request_data, True )
     elif command == 'GoToImprecise':
-      return self._GoToImprecise( request_data )
+      return self._GoTo( request_data, False )
     elif command == 'QueryReferences':
-      return self._QueryReferences( request_data )
+      return self._QueryReferences( request_data, True )
+    elif command == 'QueryReferencesImprecise':
+      return self._QueryReferences( request_data, False )
     elif command == 'QueryIncludingFiles':
       return self._QueryIncludingFiles( request_data )
     elif command == 'ClearCompilationFlagCache':
@@ -162,7 +165,7 @@ class ClangCompleter( Completer ):
     filename = request_data[ 'filepath' ]
     if not filename:
       raise ValueError( INVALID_FILE_MESSAGE )
-    usr = self._GetUsr( request_data )
+    usr = self._GetUsr( request_data, True )
     if usr:
       root_dir = yacbi.get_root_for_path( filename )
       if root_dir:
@@ -185,15 +188,17 @@ class ClangCompleter( Completer ):
     return _ResponseForLocation( location )
 
 
-  def _GoTo( self, request_data ):
-    location = self._LocationForGoTo( 'GetDefinitionLocation', request_data )
+  def _GoTo( self, request_data, reparse ):
+    location = self._LocationForGoTo( 'GetDefinitionLocation',
+                                      request_data,
+                                      reparse )
     if location and location.IsValid():
       return _ResponseForLocation( location )
     location = None
     filename = request_data[ 'filepath' ]
     if not filename:
       raise ValueError( INVALID_FILE_MESSAGE )
-    usr = self._GetUsr( request_data )
+    usr = self._GetUsr( request_data, reparse )
     if usr:
       root_dir = yacbi.get_root_for_path( filename )
       if root_dir:
@@ -207,26 +212,15 @@ class ClangCompleter( Completer ):
           else:
             return locations;
     if not location:
-      location = self._LocationForGoTo( 'GetDeclarationLocation', request_data )
-    if not location or not location.IsValid():
-      raise RuntimeError( 'Can\'t jump to definition or declaration.' )
-    return _ResponseForLocation( location )
-
-
-  def _GoToImprecise( self, request_data ):
-    location = self._LocationForGoTo( 'GetDefinitionLocation',
-                                      request_data,
-                                      reparse = False )
-    if not location or not location.IsValid():
       location = self._LocationForGoTo( 'GetDeclarationLocation',
-                                        request_data,
-                                        reparse = False )
+                                         request_data,
+                                         reparse )
     if not location or not location.IsValid():
       raise RuntimeError( 'Can\'t jump to definition or declaration.' )
     return _ResponseForLocation( location )
 
 
-  def _GetUsr( self, request_data ):
+  def _GetUsr( self, request_data, reparse ):
     filename = request_data[ 'filepath' ]
     if not filename:
       raise ValueError( INVALID_FILE_MESSAGE )
@@ -244,15 +238,15 @@ class ClangCompleter( Completer ):
       column,
       files,
       flags,
-      True )
+      reparse )
     return usr
 
 
-  def _QueryReferences( self, request_data ):
+  def _QueryReferences( self, request_data, reparse ):
     filename = request_data[ 'filepath' ]
     if not filename:
       raise ValueError( INVALID_FILE_MESSAGE )
-    usr = self._GetUsr( request_data )
+    usr = self._GetUsr( request_data, reparse )
     root_dir = yacbi.get_root_for_path( filename )
     if not root_dir:
       raise RuntimeError( 'Could not find yacbi database file.' )
@@ -285,31 +279,6 @@ class ClangCompleter( Completer ):
     linecache.checkcache()
     for loc in locations:
       desc = linecache.getline( loc.filename, loc.line ).strip()
-      result.append( { 'filepath': loc.filename,
-                       'description': desc,
-                       'line_num': loc.line - 1,
-                       'column_num': loc.column } )
-    return result
-
-
-  def _QueryReferences( self, request_data ):
-    filename = request_data[ 'filepath' ]
-    if not filename:
-      raise ValueError( INVALID_FILE_MESSAGE )
-    usr = self._GetUsr( request_data )
-    root_dir = yacbi.get_root_for_path( filename )
-    if not root_dir:
-      raise RuntimeError( 'Could not find yacbi database file.' )
-    refs = yacbi.query_references( root_dir, usr )
-    result = []
-    linecache.checkcache()
-    for r in refs:
-      loc = r.location
-      txt = linecache.getline( loc.filename, loc.line ).strip()
-      if txt:
-        desc = r.description + ': ' + txt
-      else:
-        desc = r.description
       result.append( { 'filepath': loc.filename,
                        'description': desc,
                        'line_num': loc.line - 1,
