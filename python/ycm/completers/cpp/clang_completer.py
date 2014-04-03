@@ -112,6 +112,8 @@ class ClangCompleter( Completer ):
              'QueryReferences',
              'QueryReferencesImprecise',
              'QueryIncludingFiles',
+             'QuerySubtypes',
+             'QuerySubtypesImprecise',
              'ClearCompilationFlagCache']
 
 
@@ -138,6 +140,10 @@ class ClangCompleter( Completer ):
       return self._QueryReferences( request_data, False )
     elif command == 'QueryIncludingFiles':
       return self._QueryIncludingFiles( request_data )
+    elif command == 'QuerySubtypes':
+      return self._QuerySubtypes( request_data, True )
+    elif command == 'QuerySubtypesImprecise':
+      return self._QuerySubtypes( request_data, False )
     elif command == 'ClearCompilationFlagCache':
       return self._ClearCompilationFlagCache()
     raise ValueError( self.UserCommandsHelpMessage() )
@@ -294,6 +300,32 @@ class ClangCompleter( Completer ):
     linecache.checkcache()
     for loc in locations:
       desc = linecache.getline( loc.filename, loc.line ).strip()
+      result.append( { 'filepath': loc.filename,
+                       'description': desc,
+                       'line_num': loc.line - 1,
+                       'column_num': loc.column } )
+    return result
+
+
+  def _QuerySubtypes( self, request_data, reparse ):
+    # TODO refactor to avoid duplication
+    filename = request_data[ 'filepath' ]
+    if not filename:
+      raise ValueError( INVALID_FILE_MESSAGE )
+    usr = self._GetUsr( request_data, reparse )
+    root_dir = yacbi.get_root_for_path( filename )
+    if not root_dir:
+      raise RuntimeError( 'Could not find yacbi database file.' )
+    refs = yacbi.query_subtypes( root_dir, usr )
+    result = []
+    linecache.checkcache()
+    for r in refs:
+      loc = r.location
+      txt = linecache.getline( loc.filename, loc.line ).strip()
+      if txt:
+        desc = r.description + ': ' + txt
+      else:
+        desc = r.description
       result.append( { 'filepath': loc.filename,
                        'description': desc,
                        'line_num': loc.line - 1,
