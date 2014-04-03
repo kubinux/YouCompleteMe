@@ -249,6 +249,30 @@ std::string TranslationUnit::GetUsrForLocationInFile(
   return CXStringToString( clang_getCursorUSR( referenced_cursor ) );
 }
 
+Location TranslationUnit::GetIncludedFileLocation(
+  int line,
+  int column,
+  const std::vector< UnsavedFile > &unsaved_files,
+  bool reparse ) {
+  if ( reparse )
+    ReparseForIndexing( unsaved_files );
+  unique_lock< mutex > lock( clang_access_mutex_ );
+
+  if ( !clang_translation_unit_ )
+    return Location();
+
+  CXCursor cursor = GetCursor( line, column );
+
+  if ( !CursorIsValid( cursor ) )
+    return Location();
+
+  CXFile file = clang_getIncludedFile( cursor );
+  if ( !file )
+    return Location();
+
+  return Location(CXFileToFilepath( file ), 1, 1);
+}
+
 // Argument taken as non-const ref because we need to be able to pass a
 // non-const pointer to clang. This function (and clang too) will not modify the
 // param though.

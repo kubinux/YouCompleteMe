@@ -84,6 +84,12 @@ public:
     const std::vector< UnsavedFile > &unsaved_files,
     bool reparse = true );
 
+  Location GetIncludedFileLocation(
+    int line,
+    int column,
+    const std::vector< UnsavedFile > &unsaved_files,
+    bool reparse = true );
+
 private:
   void Reparse( std::vector< CXUnsavedFile > &unsaved_files );
 

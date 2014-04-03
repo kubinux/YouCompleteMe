@@ -107,6 +107,8 @@ class ClangCompleter( Completer ):
              'GoToDeclaration',
              'GoTo',
              'GoToImprecise',
+             'GoToIncludedFile',
+             'GoToIncludedFileImprecise',
              'QueryReferences',
              'QueryReferencesImprecise',
              'QueryIncludingFiles',
@@ -126,6 +128,10 @@ class ClangCompleter( Completer ):
       return self._GoTo( request_data, True )
     elif command == 'GoToImprecise':
       return self._GoTo( request_data, False )
+    elif command == 'GoToIncludedFile':
+      return self._GoToIncludedFile( request_data, True )
+    elif command == 'GoToIncludedFileImprecise':
+      return self._GoToIncludedFile( request_data, False )
     elif command == 'QueryReferences':
       return self._QueryReferences( request_data, True )
     elif command == 'QueryReferencesImprecise':
@@ -185,6 +191,15 @@ class ClangCompleter( Completer ):
     location = self._LocationForGoTo( 'GetDeclarationLocation', request_data )
     if not location or not location.IsValid():
       raise RuntimeError( 'Can\'t jump to declaration.' )
+    return _ResponseForLocation( location )
+
+
+  def _GoToIncludedFile( self, request_data, reparse ):
+    location = self._LocationForGoTo( 'GetIncludedFileLocation',
+                                      request_data,
+                                      reparse )
+    if not location or not location.IsValid():
+      raise RuntimeError( 'Can\'t jump to included file.' )
     return _ResponseForLocation( location )
 
 
