@@ -215,6 +215,11 @@ class ClangCompleter( Completer ):
                                       reparse )
     if location and location.IsValid():
       return _ResponseForLocation( location )
+    location = self._LocationForGoTo( 'GetIncludedFileLocation',
+                                      request_data,
+                                      reparse )
+    if location and location.IsValid():
+      return _ResponseForLocation( location )
     location = None
     filename = request_data[ 'filepath' ]
     if not filename:
