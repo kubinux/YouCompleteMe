@@ -33,6 +33,15 @@ using boost::remove_pointer;
 
 namespace YouCompleteMe {
 
+namespace {
+
+unsigned editingOptions() {
+  return CXTranslationUnit_DetailedPreprocessingRecord |
+      clang_defaultEditingTranslationUnitOptions();
+}
+
+}  // unnamed namespace
+
 typedef shared_ptr <
 remove_pointer< CXCodeCompleteResults >::type > CodeCompleteResultsWrap;
 
@@ -67,8 +76,7 @@ TranslationUnit::TranslationUnit(
                               pointer_flags.size(),
                               const_cast<CXUnsavedFile *>( unsaved ),
                               cxunsaved_files.size(),
-                              CXTranslationUnit_DetailedPreprocessingRecord |
-                              clang_defaultEditingTranslationUnitOptions() );
+                              editingOptions() );
 
   if ( !clang_translation_unit_ )
     boost_throw( ClangParseError() );
@@ -278,7 +286,7 @@ Location TranslationUnit::GetIncludedFileLocation(
 // param though.
 void TranslationUnit::Reparse(
   std::vector< CXUnsavedFile > &unsaved_files ) {
-  Reparse( unsaved_files, clang_defaultEditingTranslationUnitOptions() );
+  Reparse( unsaved_files, editingOptions() );
 }
 
 
@@ -297,11 +305,10 @@ void TranslationUnit::Reparse( std::vector< CXUnsavedFile > &unsaved_files,
     CXUnsavedFile *unsaved = unsaved_files.size() > 0
                              ? &unsaved_files[ 0 ] : NULL;
 
-    failure = clang_reparseTranslationUnit(
-            clang_translation_unit_,
-            unsaved_files.size(),
-            unsaved,
-            CXTranslationUnit_DetailedPreprocessingRecord | parse_options );
+    failure = clang_reparseTranslationUnit( clang_translation_unit_,
+                                            unsaved_files.size(),
+                                            unsaved,
+                                            parse_options );
   }
 
   if ( failure ) {
